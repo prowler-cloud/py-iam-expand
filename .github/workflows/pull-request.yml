@@ -1,0 +1,80 @@
+name: PR - Lint and Test
+
+on:
+  push:
+    branches:
+      - "main"
+  pull_request:
+    branches:
+      - "main"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install poetry
+        run: |
+          python -m pip install --upgrade pip
+          pipx install poetry
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "poetry"
+
+      - name: Install dependencies
+        run: |
+          poetry install
+          poetry run pip list
+
+      - name: Poetry check
+        run: |
+          poetry check --lock
+
+      - name: Lint with flake8
+        run: |
+          poetry run flake8 . --ignore=E501
+
+      - name: Lint with ruff
+        uses: astral-sh/ruff-action@9828f49eb4cadf267b40eaa330295c412c68c1f9 # v3.2.2
+
+      - name: Checking format with black
+        run: |
+          poetry run black --check .
+
+      - name: Lint with pylint
+        run: |
+          poetry run pylint --disable=W,C,R,E -j 0 -rn -sn py_iam_expand/
+
+      - name: Check types with mypy
+        run: |
+          poetry run mypy --strict py_iam_expand/
+
+      - name: Bandit
+        run: |
+          poetry run bandit -q -lll -x './tests' -r .
+
+      - name: Safety
+        run: |
+          poetry run safety check --ignore 70612
+
+      - name: Vulture
+        run: |
+          poetry run vulture --min-confidence 100 .
+
+      - name: Test with pytest
+        run: |
+          poetry run pytest -n auto --cov=./py_iam_expand --cov-report=xml tests
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@0565863a31f2c772f9f0395002a31e3f06189574 # v5.4.0
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: prowler-cloud/py-iam-expand
