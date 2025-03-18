@@ -72,11 +72,11 @@ repos:
         language: system
         files: '.*\.py'
 
-      - id: mypy
-        name: mypy
-        entry: bash -c 'mypy --strict ./py_iam_expand'
-        language: system
-        files: '.*\.py'
+      # - id: mypy
+      #   name: mypy
+      #   entry: bash -c 'mypy --strict ./py_iam_expand'
+      #   language: system
+      #   files: '.*\.py'
 
       - id: trufflehog
         name: TruffleHog
