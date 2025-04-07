@@ -1,6 +1,6 @@
 [build-system]
 build-backend = "poetry.core.masonry.api"
-requires = ["poetry-core"]
+requires = ["poetry-core>=2.0"]
 
 [tool.mypy]
 allow_redefinition = true
@@ -16,10 +16,7 @@ classifiers = [
 ]
 description = "This is a Python package to expand and deobfuscate IAM policies."
 license = "Apache-2.0"
-maintainers = [
-  "Andoni Alonso <andoni@prowler.com>",
-  "XXX <XXX@prowler.com>"
-]
+maintainers = ["Prowler Team <engineering@prowler.com>"]
 name = "py-iam-expand"
 packages = [
   {include = "py_iam_expand"}
