@@ -15,15 +15,17 @@ def test_expand_single_pattern_no_wildcards():
 
     @patch("py_iam_expand.actions.iam_data")
     def run_test(mock_iam_data):
-        mock_iam_data.services.service_exists.return_value = True
+        mock_iam_data.services.get_service_keys.return_value = ["S3"]
         mock_iam_data.actions.get_actions_for_service.return_value = [
             "GetObject",
             "PutObject",
         ]
+
         result = _expand_single_pattern("s3:GetObject")
-        assert result == {"s3:GetObject"}
-        mock_iam_data.services.service_exists.assert_called_once_with("s3")
-        mock_iam_data.actions.get_actions_for_service.assert_called_once_with("s3")
+        assert result == {"S3:GetObject"}
+
+        mock_iam_data.services.get_service_keys.assert_called_once()
+        mock_iam_data.actions.get_actions_for_service.assert_called_once_with("S3")
 
     run_test()
 
@@ -33,15 +35,19 @@ def test_expand_single_pattern_with_wildcards():
 
     @patch("py_iam_expand.actions.iam_data")
     def run_test(mock_iam_data):
-        mock_iam_data.services.service_exists.return_value = True
+        mock_iam_data.services.get_service_keys.return_value = ["S3"]
         mock_iam_data.actions.get_actions_for_service.return_value = [
             "GetObject",
             "GetBucket",
             "PutObject",
             "ListBucket",
         ]
+
         result = _expand_single_pattern("s3:Get*")
-        assert result == {"s3:GetBucket", "s3:GetObject"}
+        assert result == {"S3:GetBucket", "S3:GetObject"}
+
+        mock_iam_data.services.get_service_keys.assert_called_once()
+        mock_iam_data.actions.get_actions_for_service.assert_called_once_with("S3")
 
     run_test()
 
@@ -51,10 +57,12 @@ def test_expand_single_pattern_service_not_exists():
 
     @patch("py_iam_expand.actions.iam_data")
     def run_test(mock_iam_data):
-        mock_iam_data.services.service_exists.return_value = False
+        mock_iam_data.services.get_service_keys.return_value = ["EC2", "IAM"]
+
         result = _expand_single_pattern("s13:Get*")
         assert result == set()
-        mock_iam_data.services.service_exists.assert_called_once_with("s13")
+
+        mock_iam_data.services.get_service_keys.assert_called_once()
         mock_iam_data.actions.get_actions_for_service.assert_not_called()
 
     run_test()
@@ -65,13 +73,19 @@ def test_expand_single_pattern_all_wildcards():
 
     @patch("py_iam_expand.actions.iam_data")
     def run_test(mock_iam_data):
-        mock_iam_data.services.get_service_keys.return_value = ["s3", "ec2"]
+        mock_iam_data.services.get_service_keys.return_value = ["S3", "EC2"]
         mock_iam_data.actions.get_actions_for_service.side_effect = [
             ["GetObject", "PutObject"],
             ["RunInstances"],
         ]
+
         result = _expand_single_pattern("*")
-        assert result == {"s3:GetObject", "s3:PutObject", "ec2:RunInstances"}
+        assert result == {"S3:GetObject", "S3:PutObject", "EC2:RunInstances"}
+
+        mock_iam_data.services.get_service_keys.assert_called_once()
+        mock_iam_data.actions.get_actions_for_service.assert_has_calls(
+            [call("S3"), call("EC2")], any_order=True
+        )
 
     run_test()
 
@@ -90,11 +104,11 @@ def test_expand_actions_single_pattern():
     """Test expand_actions with a single pattern in a list."""
 
     @patch(
-        "py_iam_expand.actions._expand_single_pattern", return_value={"s3:GetObject"}
+        "py_iam_expand.actions._expand_single_pattern", return_value={"S3:GetObject"}
     )
     def run_test(mock_expand_single):
-        result = expand_actions(["s3:GetObject"])
-        assert result == ["s3:GetObject"]
+        result = expand_actions(["s3:GetObject"])  # Pass list
+        assert result == ["S3:GetObject"]  # Returns sorted list
         mock_expand_single.assert_called_once_with("s3:GetObject")
 
     run_test()
@@ -104,11 +118,11 @@ def test_expand_actions_single_pattern_string():
     """Test expand_actions with a single pattern as a string."""
 
     @patch(
-        "py_iam_expand.actions._expand_single_pattern", return_value={"s3:GetObject"}
+        "py_iam_expand.actions._expand_single_pattern", return_value={"S3:GetObject"}
     )
     def run_test(mock_expand_single):
-        result = expand_actions("s3:GetObject")
-        assert result == ["s3:GetObject"]
+        result = expand_actions("s3:GetObject")  # Pass string
+        assert result == ["S3:GetObject"]  # Returns sorted list
         mock_expand_single.assert_called_once_with("s3:GetObject")
 
     run_test()
@@ -119,13 +133,13 @@ def test_expand_actions_multiple_patterns():
 
     def expand_side_effect(pattern):
         if pattern == "s3:Get*":
-            return {"s3:GetObject", "s3:GetBucket"}
+            return {"S3:GetObject", "S3:GetBucket"}
         elif pattern == "s3:PutObject":
-            return {"s3:PutObject"}
+            return {"S3:PutObject"}
         elif pattern == "ec2:Describe*":
-            return {"ec2:DescribeInstances", "ec2:DescribeImages"}
-        elif pattern == "s3:GetBucket":  # Overlap for deduplication test
-            return {"s3:GetBucket"}
+            return {"EC2:DescribeInstances", "EC2:DescribeImages"}
+        elif pattern == "s3:GetBucket":
+            return {"S3:GetBucket"}
         else:
             return set()
 
@@ -137,15 +151,14 @@ def test_expand_actions_multiple_patterns():
         result = expand_actions(patterns)
         expected = sorted(
             [
-                "s3:GetObject",
-                "s3:GetBucket",
-                "s3:PutObject",
-                "ec2:DescribeInstances",
-                "ec2:DescribeImages",
+                "S3:GetObject",
+                "S3:GetBucket",
+                "S3:PutObject",
+                "EC2:DescribeInstances",
+                "EC2:DescribeImages",
             ]
         )
         assert result == expected
-        # Check calls were made for each pattern
         assert mock_expand_single.call_count == len(patterns)
         mock_expand_single.assert_has_calls(
             [
@@ -155,7 +168,7 @@ def test_expand_actions_multiple_patterns():
                 call("s3:GetBucket"),
             ],
             any_order=False,
-        )  # Order matters here
+        )
 
     run_test()
 
@@ -165,19 +178,15 @@ def test_expand_actions_with_invalid_pattern():
 
     @patch("py_iam_expand.actions._expand_single_pattern")
     def run_test(mock_expand_single):
-        # Configure side effect to raise error on the second pattern
         mock_expand_single.side_effect = [
-            {"s3:GetObject"},
+            {"S3:GetObject"},
             InvalidActionPatternError("ec2", "Test error"),
-            {"iam:PassRole"},  # This should not be reached
+            {"IAM:PassRole"},
         ]
         patterns = ["s3:GetObject", "ec2", "iam:PassRole"]
         with pytest.raises(InvalidActionPatternError) as excinfo:
             expand_actions(patterns)
-
-        # Check the error message comes from the invalid pattern
         assert "'ec2'" in str(excinfo.value)
-        # Check that the mock was only called for the valid and invalid patterns
         assert mock_expand_single.call_count == 2
         mock_expand_single.assert_has_calls([call("s3:GetObject"), call("ec2")])
 
@@ -185,12 +194,12 @@ def test_expand_actions_with_invalid_pattern():
 
 
 MOCK_ALL_ACTIONS = {
-    "s3:GetObject",
-    "s3:PutObject",
-    "s3:DeleteObject",
-    "ec2:RunInstances",
-    "ec2:StopInstances",
-    "iam:PassRole",
+    "S3:GetObject",
+    "S3:PutObject",
+    "S3:DeleteObject",
+    "EC2:RunInstances",
+    "EC2:StopInstances",
+    "IAM:PassRole",
 }
 
 
@@ -199,11 +208,11 @@ def test_invert_actions_single_pattern():
 
     @patch("py_iam_expand.actions._get_all_actions", return_value=MOCK_ALL_ACTIONS)
     @patch(
-        "py_iam_expand.actions._expand_single_pattern", return_value={"s3:GetObject"}
+        "py_iam_expand.actions._expand_single_pattern", return_value={"S3:GetObject"}
     )
     def run_test(mock_expand_single, mock_get_all):
         result = invert_actions(["s3:GetObject"])
-        expected = sorted(list(MOCK_ALL_ACTIONS - {"s3:GetObject"}))
+        expected = sorted(list(MOCK_ALL_ACTIONS - {"S3:GetObject"}))
         assert result == expected
         mock_expand_single.assert_called_once_with("s3:GetObject")
         mock_get_all.assert_called_once()
@@ -216,11 +225,11 @@ def test_invert_actions_single_pattern_string():
 
     @patch("py_iam_expand.actions._get_all_actions", return_value=MOCK_ALL_ACTIONS)
     @patch(
-        "py_iam_expand.actions._expand_single_pattern", return_value={"s3:GetObject"}
+        "py_iam_expand.actions._expand_single_pattern", return_value={"S3:GetObject"}
     )
     def run_test(mock_expand_single, mock_get_all):
         result = invert_actions("s3:GetObject")
-        expected = sorted(list(MOCK_ALL_ACTIONS - {"s3:GetObject"}))
+        expected = sorted(list(MOCK_ALL_ACTIONS - {"S3:GetObject"}))
         assert result == expected
         mock_expand_single.assert_called_once_with("s3:GetObject")
         mock_get_all.assert_called_once()
@@ -233,9 +242,9 @@ def test_invert_actions_multiple_patterns():
 
     def expand_side_effect(pattern):
         if pattern == "s3:Get*":
-            return {"s3:GetObject"}
+            return {"S3:GetObject"}
         elif pattern == "ec2:*Instances":
-            return {"ec2:RunInstances", "ec2:StopInstances"}
+            return {"EC2:RunInstances", "EC2:StopInstances"}
         else:
             return set()
 
@@ -247,7 +256,7 @@ def test_invert_actions_multiple_patterns():
         patterns = ["s3:Get*", "ec2:*Instances"]
         result = invert_actions(patterns)
 
-        actions_to_exclude = {"s3:GetObject", "ec2:RunInstances", "ec2:StopInstances"}
+        actions_to_exclude = {"S3:GetObject", "EC2:RunInstances", "EC2:StopInstances"}
         expected = sorted(list(MOCK_ALL_ACTIONS - actions_to_exclude))
         assert result == expected
 
@@ -265,7 +274,7 @@ def test_invert_actions_with_invalid_pattern():
     @patch("py_iam_expand.actions._expand_single_pattern")
     def run_test(mock_expand_single, mock_get_all):
         mock_expand_single.side_effect = [
-            {"s3:GetObject"},
+            {"S3:GetObject"},
             InvalidActionPatternError("ec2", "Test error"),
         ]
         patterns = ["s3:GetObject", "ec2"]
@@ -275,6 +284,6 @@ def test_invert_actions_with_invalid_pattern():
         assert "'ec2'" in str(excinfo.value)
         assert mock_expand_single.call_count == 2
         mock_expand_single.assert_has_calls([call("s3:GetObject"), call("ec2")])
-        mock_get_all.assert_not_called()  # Should fail before getting all actions
+        mock_get_all.assert_not_called()
 
     run_test()
