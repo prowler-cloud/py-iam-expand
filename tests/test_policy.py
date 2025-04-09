@@ -36,3 +36,42 @@ class TestPolicyExpansion:
         for policy in invalid_policies:
             with pytest.raises((ValueError, TypeError)):
                 expand_policy_actions(policy)
+
+    def test_expand_policy_with_unicode(self):
+        """Test handling of Unicode characters in policy"""
+        policy = {
+            "Statement": [
+                {"Effect": "\u0041llow", "Action": "s3:Get*"}  # Unicode "Allow"
+            ]
+        }
+        result = expand_policy_actions(policy)
+        assert result["Statement"][0]["Effect"] == "Allow"
+        assert isinstance(result["Statement"][0]["Action"], list)
+
+    def test_expand_policy_empty_actions(self):
+        """Test handling of empty action lists"""
+        policy = {"Statement": [{"Action": []}]}
+        result = expand_policy_actions(policy)
+        assert result["Statement"][0]["Action"] == []
+
+    def test_expand_policy_mixed_actions(self):
+        """Test policy with both Action and NotAction"""
+        policy = {"Statement": [{"Action": "s3:Get*", "NotAction": "iam:*"}]}
+        result = expand_policy_actions(policy)
+        assert isinstance(result["Statement"][0]["Action"], list)
+        assert isinstance(result["Statement"][0]["NotAction"], list)
+
+    @pytest.mark.parametrize(
+        "invalid_action",
+        [
+            123,  # Number
+            True,  # Boolean
+            {"key": "value"},  # Dictionary
+            None,  # None
+        ],
+    )
+    def test_expand_policy_invalid_action_types(self, invalid_action):
+        """Test handling of invalid action value types"""
+        policy = {"Statement": [{"Action": invalid_action}]}
+        with pytest.raises(TypeError):
+            expand_policy_actions(policy)

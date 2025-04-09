@@ -47,3 +47,40 @@ class TestActionInversion:
             "STS:AssumeRole",
         ]
         assert result == expected
+
+    def test_expand_all_wildcard(self):
+        """Test expanding '*' pattern"""
+        result = expand_actions("*")
+        assert len(result) > 0
+        assert all(":" in action for action in result)
+
+    def test_expand_empty_list(self):
+        """Test expanding empty list of patterns"""
+        result = expand_actions([])
+        assert result == []
+
+    def test_expand_invalid_service(self):
+        """Test handling of non-existent service"""
+        result = expand_actions("nonexistent:*")
+        assert result == []
+
+    def test_expand_case_sensitivity(self):
+        """Test case insensitive matching"""
+        lower_result = expand_actions("s3:get*")
+        upper_result = expand_actions("S3:GET*")
+        mixed_result = expand_actions("s3:GeT*")
+        assert lower_result == upper_result == mixed_result
+
+    @pytest.mark.parametrize(
+        "pattern",
+        [
+            "s3GetObject",  # Missing colon
+            ":GetObject",  # Missing service
+            "s3:",  # Missing action
+            "",  # Empty string
+        ],
+    )
+    def test_expand_invalid_formats(self, pattern):
+        """Test various invalid pattern formats"""
+        with pytest.raises(InvalidActionPatternError):
+            expand_actions(pattern)

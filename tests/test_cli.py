@@ -93,3 +93,73 @@ class TestCliInterface:
                         main()
                     captured = capsys.readouterr()
                     assert "Invalid JSON policy provided via stdin" in captured.err
+
+    def test_cli_multiple_patterns(self, capsys):
+        """Test handling multiple patterns as arguments"""
+        with patch("sys.argv", ["py-iam-expand", "s3:Get*", "ec2:Describe*"]):
+            main()
+            captured = capsys.readouterr()
+            assert "S3:" in captured.out
+            assert "EC2:" in captured.out
+
+    def test_cli_empty_stdin(self, capsys):
+        """Test handling empty stdin"""
+        with patch("sys.stdin.read", return_value=""):
+            with patch("sys.stdin.isatty", return_value=False):
+                with patch("sys.argv", ["py-iam-expand"]):
+                    with pytest.raises(SystemExit) as exc_info:
+                        main()
+                    assert exc_info.value.code == 1
+                    captured = capsys.readouterr()
+                    assert "Error:" in captured.err
+
+    @pytest.mark.parametrize("flag", ["-i", "--invert"])
+    def test_cli_invert_flags(self, flag, capsys):
+        """Test both short and long invert flags"""
+        with patch("sys.argv", ["py-iam-expand", flag, "s3:Get*"]):
+            main()
+            captured = capsys.readouterr()
+            output_lines = captured.out.splitlines()
+
+            # Verify that the output:
+            # 1. Contains actions from other services
+            # 2. Does not contain the actions we excluded (s3:Get*)
+            # 3. Contains at least one line
+            assert len(output_lines) > 0
+            assert any(
+                line.startswith(("EC2:", "IAM:", "STS:")) for line in output_lines
+            )
+            assert not any(line.startswith("S3:Get") for line in output_lines)
+
+            # Optional: Verify specific expected actions are present
+            assert "IAM:PassRole" in output_lines
+            assert "EC2:DescribeInstances" in output_lines
+
+    def test_cli_invert_specific_verification(self, capsys):
+        """Test invert operation with specific pattern and verification"""
+        with patch("sys.argv", ["py-iam-expand", "-i", "s3:Get*"]):
+            with patch("py_iam_expand.actions._get_all_actions") as mock_all_actions:
+                # Mock a smaller set of actions for easier testing
+                mock_all_actions.return_value = {
+                    "S3:GetObject",
+                    "S3:GetBucket",
+                    "S3:PutObject",
+                    "EC2:DescribeInstances",
+                    "IAM:PassRole",
+                }
+
+                main()
+                captured = capsys.readouterr()
+                output_lines = set(captured.out.splitlines())
+
+                # Should contain these actions
+                expected_actions = {
+                    "S3:PutObject",
+                    "EC2:DescribeInstances",
+                    "IAM:PassRole",
+                }
+                # Should not contain these actions
+                excluded_actions = {"S3:GetObject", "S3:GetBucket"}
+
+                assert output_lines == expected_actions
+                assert not (output_lines & excluded_actions)
