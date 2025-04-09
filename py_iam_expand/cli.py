@@ -8,8 +8,8 @@ from .utils import get_version
 def main():
     parser = argparse.ArgumentParser(
         description=(
-            "Expand AWS IAM action patterns like 's3:Get*' or '*:*'. "
-            "Reads pattern from argument or stdin if argument is omitted."
+            "Expand or invert one or more AWS IAM action patterns. "
+            "Reads patterns from arguments or stdin (one per line) if arguments are omitted."
         ),
         prog="py-iam-expand",
     )
@@ -22,11 +22,12 @@ def main():
     )
 
     parser.add_argument(
-        "action_pattern",
-        nargs="?",
+        "action_patterns",
+        nargs="*",
         help=(
-            "The IAM action pattern to expand or invert (e.g., 's3:Get*', "
-            "'ec2:*', '*'). If omitted, reads from stdin."
+            "One or more IAM action patterns to expand or invert "
+            "(e.g., 's3:Get*' 'ec2:*'). If omitted, reads patterns from stdin "
+            "(one per line)."
         ),
         metavar="ACTION_PATTERN",
     )
@@ -35,39 +36,42 @@ def main():
         "-i",
         "--invert",
         action="store_true",
-        help="Invert the result: show all actions *except* those matching the pattern.",
+        help="Invert the result: show all actions *except* those matching the patterns.",
     )
 
     args = parser.parse_args()
 
-    pattern_to_process = None
+    patterns_to_process = []
 
-    if args.action_pattern is not None:
-        pattern_to_process = args.action_pattern
+    if args.action_patterns:
+        patterns_to_process = args.action_patterns
     else:
-        # No argument provided, check stdin
-        # sys.stdin.isatty() is True if connected to a terminal (interactive)
+        # No arguments provided, check stdin
         if sys.stdin.isatty():
-            # Interactive use without an argument: show help and exit
+            # Interactive use without arguments: show help and exit
             parser.print_help(sys.stderr)
             sys.exit(1)
         else:
-            # Not a tty, likely piped input: read from stdin
-            pattern_from_stdin = sys.stdin.readline().strip()
-            if not pattern_from_stdin:
-                print("Error: Received empty pattern from stdin.", file=sys.stderr)
+            # Not a tty, likely piped input: read all lines from stdin
+            # Filter out empty lines after stripping whitespace
+            patterns_from_stdin = [
+                line for line in sys.stdin.read().splitlines() if line.strip()
+            ]
+            if not patterns_from_stdin:
+                # Handle empty input from stdin as an error
+                print("Error: Received no patterns from stdin.", file=sys.stderr)
                 sys.exit(1)
-            pattern_to_process = pattern_from_stdin
+            patterns_to_process = patterns_from_stdin
 
     try:
-        if pattern_to_process is None:
-            print("Error: Could not determine action pattern.", file=sys.stderr)
+        if not patterns_to_process:
+            print("Error: No action patterns provided.", file=sys.stderr)
             sys.exit(1)
 
         if args.invert:
-            result_actions = invert_actions(pattern_to_process)
+            result_actions = invert_actions(patterns_to_process)
         else:
-            result_actions = expand_actions(pattern_to_process)
+            result_actions = expand_actions(patterns_to_process)
 
         if result_actions:
             for action in result_actions:
@@ -78,7 +82,7 @@ def main():
         sys.exit(1)
 
     except Exception as e:
-        print(f"An unexpected error occurred: {e}", file=sys.stderr)
+        print(f"An unexpected error occurred processing patterns: {e}", file=sys.stderr)
         sys.exit(2)
 
 

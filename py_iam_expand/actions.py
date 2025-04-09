@@ -1,5 +1,5 @@
 import fnmatch
-from typing import List, Set
+from typing import List, Set, Union
 
 from iamdata import IAMData
 
@@ -27,23 +27,8 @@ def _get_all_actions() -> Set[str]:
     return all_actions
 
 
-def expand_actions(action_pattern: str) -> List[str]:
-    """
-    Expands IAM action patterns (like s3:GetObject, s3:Get*, s3:*, *)
-    into a list of matching IAM actions.
-
-    Args:
-        action_pattern: The action pattern string. Can include wildcards (*).
-                        Examples: "s3:GetObject", "s3:Get*", "ec2:*", "*".
-
-    Returns:
-        A sorted list of unique matching IAM actions.
-        Returns an empty list if the service doesn't exist or no actions match.
-
-    Raises:
-        ValueError: If the input `action_pattern` does not
-            conform to the 'service:action' format or is not '*'.
-    """
+def _expand_single_pattern(action_pattern: str) -> Set[str]:
+    """Expands a single IAM action pattern."""
     expanded_actions: Set[str] = set()
     target_services: List[str] = []
 
@@ -59,14 +44,13 @@ def expand_actions(action_pattern: str) -> List[str]:
         try:
             service_pattern, action_name_pattern = action_pattern.split(":", 1)
             if not service_pattern or not action_name_pattern:
-                # Invalid format: "s3:" or ":action"
                 raise InvalidActionPatternError(
                     pattern=action_pattern,
                     message=(
                         "Both service and action parts are required " "after the colon."
                     ),
                 )
-        except InvalidActionPatternError:
+        except ValueError:  # Should not happen, but defensive
             raise InvalidActionPatternError(
                 pattern=action_pattern, message="Unexpected parsing error."
             )
@@ -78,12 +62,12 @@ def expand_actions(action_pattern: str) -> List[str]:
             svc for svc in all_service_keys if fnmatch.fnmatchcase(svc, service_pattern)
         ]
         if not target_services:
-            return []
+            return set()
     else:
         if iam_data.services.service_exists(service_pattern):
             target_services = [service_pattern]
         else:
-            return []
+            return set()
 
     for service_prefix in target_services:
         service_actions = iam_data.actions.get_actions_for_service(service_prefix)
@@ -101,30 +85,63 @@ def expand_actions(action_pattern: str) -> List[str]:
             if action_name_pattern in service_actions:
                 expanded_actions.add(f"{service_prefix}:{action_name_pattern}")
 
-    return sorted(list(expanded_actions))
+    return expanded_actions
 
 
-def invert_actions(action_pattern: str) -> List[str]:
+def expand_actions(action_patterns: Union[str, List[str]]) -> List[str]:
     """
-    Finds all IAM actions *except* those matching the given pattern.
-
-    Useful for handling NotAction statements.
+    Expands one or more IAM action patterns into a list of matching actions.
 
     Args:
-        action_pattern: The action pattern string to exclude. Must follow
-                        the same format rules as `expand_actions`.
+        action_patterns: A single pattern string or a list of pattern strings.
+                        Each pattern must follow 'service:action' format or be '*'.
 
     Returns:
-        A sorted list of unique IAM actions that do *not* match the pattern.
+        A sorted list of unique matching IAM actions combined from all patterns.
 
     Raises:
-        InvalidActionPatternError: If the input `action_pattern` does not
-            conform to the 'service:action' format or is not '*'.
+        InvalidActionPatternError: If any input pattern is invalid.
     """
-    actions_to_exclude = set(expand_actions(action_pattern))
+    if isinstance(action_patterns, str):
+        patterns = [action_patterns]  # Treat single string as a list of one
+    else:
+        patterns = action_patterns
+
+    combined_actions: Set[str] = set()
+    for pattern in patterns:
+        expanded = _expand_single_pattern(pattern)
+        combined_actions.update(expanded)
+
+    return sorted(list(combined_actions))
+
+
+def invert_actions(action_patterns: Union[str, List[str]]) -> List[str]:
+    """
+    Finds all IAM actions *except* those matching the given pattern(s).
+
+    Args:
+        action_patterns: A single pattern string or a list of pattern strings
+                        to exclude. Each pattern must follow the same format
+                        rules as `expand_actions`.
+
+    Returns:
+        A sorted list of unique IAM actions that do *not* match any of the
+        given patterns.
+
+    Raises:
+        InvalidActionPatternError: If any input pattern is invalid.
+    """
+    if isinstance(action_patterns, str):
+        patterns = [action_patterns]
+    else:
+        patterns = action_patterns
+
+    total_actions_to_exclude: Set[str] = set()
+    for pattern in patterns:
+        excluded_for_pattern = _expand_single_pattern(pattern)
+        total_actions_to_exclude.update(excluded_for_pattern)
 
     all_actions = _get_all_actions()
-
-    inverted_actions = all_actions - actions_to_exclude
+    inverted_actions = all_actions - total_actions_to_exclude
 
     return sorted(list(inverted_actions))
