@@ -1,7 +1,7 @@
 import argparse
 import sys
 
-from .actions import expand_actions
+from .actions import InvalidActionPatternError, expand_actions
 from .utils import get_version
 
 
@@ -27,23 +27,40 @@ def main():
 
     args = parser.parse_args()
 
-    if args.action_pattern is None:
-        parser.print_help(sys.stderr)
-        sys.exit(1)
+    pattern_to_expand = None
+
+    if args.action_pattern is not None:
+        pattern_to_expand = args.action_pattern
+    else:
+        # No argument provided, check stdin
+        # sys.stdin.isatty() is True if connected to a terminal (interactive)
+        if sys.stdin.isatty():
+            # Interactive use without an argument: show help and exit
+            parser.print_help(sys.stderr)
+            sys.exit(1)
+        else:
+            # Not a tty, likely piped input: read from stdin
+            pattern_from_stdin = sys.stdin.readline().strip()
+            if not pattern_from_stdin:
+                print("Error: Received empty pattern from stdin.", file=sys.stderr)
+                sys.exit(1)
+            pattern_to_expand = pattern_from_stdin
 
     try:
-        expanded = expand_actions(args.action_pattern)
+        if pattern_to_expand is None:
+            print("Error: Could not determine action pattern.", file=sys.stderr)
+            sys.exit(1)
+
+        expanded = expand_actions(pattern_to_expand)
         if expanded:
             for action in expanded:
                 print(action)
 
-    except ValueError as e:
-        # Print the specific error message from the exception to stderr
+    except InvalidActionPatternError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
     except Exception as e:
-        # Catch any other unexpected errors during expansion
         print(f"An unexpected error occurred: {e}", file=sys.stderr)
         sys.exit(2)
 

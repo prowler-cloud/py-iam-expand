@@ -1,3 +1,4 @@
+import io
 from unittest.mock import patch
 
 import pytest
@@ -85,10 +86,10 @@ def test_cli_expand_no_matches(capsys):
     run_test()
 
 
-def test_cli_no_args(capsys):
+def test_cli_no_args_interactive(capsys):
     @patch("sys.exit")
     @patch("sys.argv", ["py-iam-expand"])  # No action pattern arg
-    def run_test(mock_exit):
+    def run_test(_mock_argv):
         main()
 
         # Assert help/usage message was printed to stderr
@@ -96,5 +97,54 @@ def test_cli_no_args(capsys):
         assert captured.out == ""
         assert "usage: py-iam-expand" in captured.err
         assert "ACTION_PATTERN" in captured.err  # Check positional arg is mentioned
+
+    run_test()
+
+
+def test_cli_read_from_stdin(capsys):
+    # Simulate piped input: argv has no pattern, stdin is not a tty
+    # Mock stdin itself to provide controlled input
+    mock_stdin = io.StringIO("s3:Get*Tagging\n")
+
+    @patch("py_iam_expand.cli.expand_actions")
+    @patch("sys.stdin.isatty", return_value=False)  # Simulate non-interactive
+    @patch("sys.stdin", mock_stdin)  # Replace sys.stdin with our mock
+    @patch("sys.argv", ["py-iam-expand"])  # No positional arg
+    def run_test(_mock_isatty, mock_expand):
+        mock_expand.return_value = [
+            "s3:GetBucketTagging",
+            "s3:GetObjectTagging",
+        ]  # Example return
+
+        main()
+
+        # Assert expand was called with the pattern from stdin
+        mock_expand.assert_called_once_with("s3:Get*Tagging")
+
+        captured = capsys.readouterr()
+        assert captured.out == "s3:GetBucketTagging\ns3:GetObjectTagging\n"
+        assert captured.err == ""
+
+    run_test()
+
+
+def test_cli_empty_stdin(capsys):
+    mock_stdin = io.StringIO("\n")  # Empty line
+
+    @patch("py_iam_expand.cli.expand_actions")
+    @patch("sys.stdin.isatty", return_value=False)
+    @patch("sys.stdin", mock_stdin)
+    @patch("sys.argv", ["py-iam-expand"])
+    def run_test(_mock_isatty, mock_expand):
+        with pytest.raises(SystemExit) as e:
+            main()
+        assert e.type == SystemExit
+        assert e.value.code == 1  # Exit code 1 for bad input
+
+        mock_expand.assert_not_called()  # expand_actions shouldn't be hit
+
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert "Error: Received empty pattern from stdin." in captured.err
 
     run_test()
