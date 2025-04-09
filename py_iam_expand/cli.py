@@ -1,11 +1,13 @@
 import argparse
+import sys
 
+from .actions import expand_actions
 from .utils import get_version
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="PyIAMExpand CLI - Shows package version.",
+        description="Expand AWS IAM action patterns like 's3:Get*' or '*:*'.",
         prog="py-iam-expand",
     )
 
@@ -16,15 +18,34 @@ def main():
         help="Show the package version and exit",
     )
 
-    # Add other arguments here if the tool did more
-    # parser.add_argument("input", help="Input file")
-    # parser.add_argument("-o", "--output", help="Output file")
+    parser.add_argument(
+        "action_pattern",
+        nargs="?",
+        help="The IAM action pattern to expand (e.g., 's3:Get*', 'ec2:*', '*').",
+        metavar="ACTION_PATTERN",
+    )
 
-    parser.parse_args()
+    args = parser.parse_args()
 
-    # If no arguments, just print the version again or a help message.
-    print(f"Welcome to py_iam_expand version {get_version()}")
-    print("Use --help for options or --version to see the version.")
+    if args.action_pattern is None:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
+
+    try:
+        expanded = expand_actions(args.action_pattern)
+        if expanded:
+            for action in expanded:
+                print(action)
+
+    except ValueError as e:
+        # Print the specific error message from the exception to stderr
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    except Exception as e:
+        # Catch any other unexpected errors during expansion
+        print(f"An unexpected error occurred: {e}", file=sys.stderr)
+        sys.exit(2)
 
 
 if __name__ == "__main__":

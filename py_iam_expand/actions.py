@@ -6,6 +6,15 @@ from iamdata import IAMData
 iam_data = IAMData()
 
 
+class InvalidActionPatternError(ValueError):
+    """Custom exception for invalid IAM action pattern formats."""
+
+    def __init__(self, pattern: str, message: str):
+        self.pattern = pattern
+        self.message = message
+        super().__init__(f"Invalid action pattern '{pattern}': {message}")
+
+
 def expand_actions(action_pattern: str) -> List[str]:
     """
     Expands IAM action patterns (like s3:GetObject, s3:Get*, s3:*, *)
@@ -30,7 +39,7 @@ def expand_actions(action_pattern: str) -> List[str]:
         service_pattern = "*"
         action_name_pattern = "*"
     elif ":" not in action_pattern:
-        raise ValueError(
+        raise InvalidActionPatternError(
             pattern=action_pattern,
             message="Must be 'service:action' or '*'. Missing colon.",
         )
@@ -39,14 +48,14 @@ def expand_actions(action_pattern: str) -> List[str]:
             service_pattern, action_name_pattern = action_pattern.split(":", 1)
             if not service_pattern or not action_name_pattern:
                 # Invalid format: "s3:" or ":action"
-                raise ValueError(
+                raise InvalidActionPatternError(
                     pattern=action_pattern,
                     message=(
                         "Both service and action parts are required " "after the colon."
                     ),
                 )
-        except ValueError:
-            raise ValueError(
+        except InvalidActionPatternError:
+            raise InvalidActionPatternError(
                 pattern=action_pattern, message="Unexpected parsing error."
             )
 
