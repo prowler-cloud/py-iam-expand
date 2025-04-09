@@ -148,3 +148,71 @@ def test_cli_empty_stdin(capsys):
         assert "Error: Received empty pattern from stdin." in captured.err
 
     run_test()
+
+
+def test_cli_invert_success_long_flag(capsys):
+    @patch("py_iam_expand.cli.invert_actions")
+    @patch("sys.argv", ["py-iam-expand", "--invert", "s3:Get*"])
+    def run_test(mock_invert):
+        mock_invert.return_value = [
+            "s3:DeleteObject",
+            "iam:PassRole",
+        ]  # Example inverted result
+        main()
+        mock_invert.assert_called_once_with("s3:Get*")
+        captured = capsys.readouterr()
+        assert captured.out == "s3:DeleteObject\niam:PassRole\n"
+        assert captured.err == ""
+
+    run_test()
+
+
+def test_cli_invert_success_short_flag(capsys):
+    @patch("py_iam_expand.cli.invert_actions")
+    @patch("sys.argv", ["py-iam-expand", "-i", "s3:Get*"])
+    def run_test(mock_invert):
+        mock_invert.return_value = ["s3:DeleteObject", "iam:PassRole"]
+        main()
+        mock_invert.assert_called_once_with("s3:Get*")
+        captured = capsys.readouterr()
+        assert captured.out == "s3:DeleteObject\niam:PassRole\n"
+        assert captured.err == ""
+
+    run_test()
+
+
+def test_cli_invert_invalid_format(capsys):
+    @patch("py_iam_expand.cli.invert_actions")  # Mock invert to raise error
+    @patch("sys.argv", ["py-iam-expand", "--invert", "s3:"])  # Invalid format
+    def run_test(mock_invert):  # Correct order
+        mock_invert.side_effect = InvalidActionPatternError(
+            pattern="s3:", message="Invert test error"
+        )
+        with pytest.raises(SystemExit) as e:
+            main()
+        assert e.type == SystemExit
+        assert e.value.code == 1
+        mock_invert.assert_called_once_with("s3:")
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert "Error: Invalid action pattern 's3:': Invert test error" in captured.err
+
+    run_test()
+
+
+def test_cli_invert_read_from_stdin(capsys):
+    mock_stdin = io.StringIO("ec2:Run*\n")
+
+    @patch("py_iam_expand.cli.invert_actions")  # Mock invert
+    @patch("sys.stdin.isatty", return_value=False)
+    @patch("sys.stdin", mock_stdin)
+    @patch("sys.argv", ["py-iam-expand", "--invert"])  # Flag, no positional arg
+    def run_test(_mock_isatty, mock_invert):  # Correct order
+        mock_invert.return_value = ["s3:GetObject", "iam:PassRole"]
+        main()
+        mock_invert.assert_called_once_with("ec2:Run*")  # Pattern from stdin
+        captured = capsys.readouterr()
+        assert captured.out == "s3:GetObject\niam:PassRole\n"
+        assert captured.err == ""
+
+    run_test()

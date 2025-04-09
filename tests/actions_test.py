@@ -1,8 +1,13 @@
 from unittest.mock import patch
 
+import pytest
 from iamdata import IAMData
 
-from py_iam_expand.actions import expand_actions
+from py_iam_expand.actions import (
+    InvalidActionPatternError,
+    expand_actions,
+    invert_actions,
+)
 
 iam_data = IAMData()
 
@@ -68,5 +73,99 @@ def test_expand_actions_all_wildcards():
 
         result = expand_actions("*")
         assert result == ["s3:GetObject", "s3:PutObject"]
+
+    run_test()
+
+
+MOCK_ALL_ACTIONS = {
+    "s3:GetObject",
+    "s3:PutObject",
+    "s3:DeleteObject",
+    "ec2:RunInstances",
+    "ec2:StopInstances",
+    "iam:PassRole",
+}
+
+
+def test_invert_actions_specific():
+    @patch("py_iam_expand.actions._get_all_actions", return_value=MOCK_ALL_ACTIONS)
+    @patch("py_iam_expand.actions.expand_actions", return_value=["s3:GetObject"])
+    def run_test(mock_expand, mock_get_all):
+        pattern = "s3:GetObject"
+        result = invert_actions(pattern)
+
+        mock_expand.assert_called_once_with(pattern)
+        mock_get_all.assert_called_once()
+
+        expected = sorted(list(MOCK_ALL_ACTIONS - {"s3:GetObject"}))
+        assert result == expected
+
+    run_test()
+
+
+def test_invert_actions_wildcard():
+    actions_to_exclude = ["ec2:RunInstances", "ec2:StopInstances"]
+
+    @patch("py_iam_expand.actions._get_all_actions", return_value=MOCK_ALL_ACTIONS)
+    @patch("py_iam_expand.actions.expand_actions", return_value=actions_to_exclude)
+    def run_test(mock_expand, mock_get_all):
+        pattern = "ec2:*Instances"
+        result = invert_actions(pattern)
+
+        mock_expand.assert_called_once_with(pattern)
+        mock_get_all.assert_called_once()
+
+        # Expected: all actions except the ec2 ones, sorted
+        expected = sorted(list(MOCK_ALL_ACTIONS - set(actions_to_exclude)))
+        assert result == expected
+
+    run_test()
+
+
+def test_invert_actions_all_wildcard():
+    @patch("py_iam_expand.actions._get_all_actions", return_value=MOCK_ALL_ACTIONS)
+    @patch("py_iam_expand.actions.expand_actions", return_value=list(MOCK_ALL_ACTIONS))
+    def run_test(mock_expand, mock_get_all):
+        pattern = "*"
+        result = invert_actions(pattern)
+
+        mock_expand.assert_called_once_with(pattern)
+        mock_get_all.assert_called_once()
+
+        assert result == []
+
+    run_test()
+
+
+def test_invert_actions_no_match():
+    @patch("py_iam_expand.actions._get_all_actions", return_value=MOCK_ALL_ACTIONS)
+    @patch("py_iam_expand.actions.expand_actions", return_value=[])
+    def run_test(mock_expand, mock_get_all):
+        pattern = "s3:NoSuchAction*"
+        result = invert_actions(pattern)
+
+        mock_expand.assert_called_once_with(pattern)
+        mock_get_all.assert_called_once()
+
+        expected = sorted(list(MOCK_ALL_ACTIONS))
+        assert result == expected
+
+    run_test()
+
+
+def test_invert_actions_invalid_pattern():
+    @patch("py_iam_expand.actions._get_all_actions")
+    @patch("py_iam_expand.actions.expand_actions")
+    def run_test(mock_expand, mock_get_all):
+        pattern = "s3"  # Invalid pattern
+        mock_expand.side_effect = InvalidActionPatternError(
+            pattern=pattern, message="Test error"
+        )
+
+        with pytest.raises(InvalidActionPatternError):
+            invert_actions(pattern)
+
+        mock_expand.assert_called_once_with(pattern)
+        mock_get_all.assert_not_called()  # Should fail before getting all actions
 
     run_test()
