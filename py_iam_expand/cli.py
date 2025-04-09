@@ -1,15 +1,17 @@
 import argparse
+import json
 import sys
 
 from .actions import InvalidActionPatternError, expand_actions, invert_actions
+from .policy import expand_policy_actions
 from .utils import get_version
 
 
 def main():
     parser = argparse.ArgumentParser(
         description=(
-            "Expand or invert one or more AWS IAM action patterns. "
-            "Reads patterns from arguments or stdin (one per line) if arguments are omitted."
+            "Expand AWS IAM action patterns provided as arguments/stdin lines OR "
+            "expand actions within an IAM Policy JSON provided via stdin."
         ),
         prog="py-iam-expand",
     )
@@ -25,9 +27,8 @@ def main():
         "action_patterns",
         nargs="*",
         help=(
-            "One or more IAM action patterns to expand or invert "
-            "(e.g., 's3:Get*' 'ec2:*'). If omitted, reads patterns from stdin "
-            "(one per line)."
+            "IAM action pattern(s) to expand/invert (e.g., 's3:Get*' 'ec2:*'). "
+            "If omitted, reads from stdin. Cannot be used if stdin is a JSON policy."
         ),
         metavar="ACTION_PATTERN",
     )
@@ -36,53 +37,84 @@ def main():
         "-i",
         "--invert",
         action="store_true",
-        help="Invert the result: show all actions *except* those matching the patterns.",
+        help=(
+            "Invert pattern expansion result. Cannot be used if stdin is a JSON policy."
+        ),
     )
 
     args = parser.parse_args()
 
-    patterns_to_process = []
+    is_policy_mode = False
+    stdin_content = None
 
-    if args.action_patterns:
-        patterns_to_process = args.action_patterns
-    else:
-        # No arguments provided, check stdin
+    if not args.action_patterns:  # No positional args, check stdin
         if sys.stdin.isatty():
             # Interactive use without arguments: show help and exit
             parser.print_help(sys.stderr)
             sys.exit(1)
         else:
-            # Not a tty, likely piped input: read all lines from stdin
-            # Filter out empty lines after stripping whitespace
-            patterns_from_stdin = [
-                line for line in sys.stdin.read().splitlines() if line.strip()
-            ]
-            if not patterns_from_stdin:
-                # Handle empty input from stdin as an error
-                print("Error: Received no patterns from stdin.", file=sys.stderr)
-                sys.exit(1)
-            patterns_to_process = patterns_from_stdin
+            stdin_content = sys.stdin.read()
+            if stdin_content.strip().startswith("{"):
+                is_policy_mode = True
+
+    if is_policy_mode and args.invert:
+        print(
+            "Error: --invert flag cannot be used when processing a JSON policy from stdin.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     try:
-        if not patterns_to_process:
-            print("Error: No action patterns provided.", file=sys.stderr)
-            sys.exit(1)
+        if is_policy_mode:
+            if not stdin_content:
+                print("Error: Received empty policy from stdin.", file=sys.stderr)
+                sys.exit(1)
+            try:
+                policy_data = json.loads(stdin_content)
+            except json.JSONDecodeError as e:
+                print(
+                    f"Error: Invalid JSON policy provided via stdin: {e}",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
 
-        if args.invert:
-            result_actions = invert_actions(patterns_to_process)
+            expanded_policy = expand_policy_actions(policy_data)
+
+            print(json.dumps(expanded_policy, indent=2))
+
         else:
-            result_actions = expand_actions(patterns_to_process)
+            patterns_to_process = []
+            if args.action_patterns:
+                patterns_to_process = args.action_patterns
+            elif stdin_content is not None:
+                patterns_from_stdin = [
+                    line for line in stdin_content.splitlines() if line.strip()
+                ]
+                if not patterns_from_stdin:
+                    print("Error: Received no patterns from stdin.", file=sys.stderr)
+                    sys.exit(1)
+                patterns_to_process = patterns_from_stdin
+            else:
+                print("Error: No action patterns provided.", file=sys.stderr)
+                sys.exit(1)
 
-        if result_actions:
-            for action in result_actions:
-                print(action)
+            if args.invert:
+                result_actions = invert_actions(patterns_to_process)
+            else:
+                result_actions = expand_actions(patterns_to_process)
+
+            if result_actions:
+                for action in result_actions:
+                    print(action)
 
     except InvalidActionPatternError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
-
+    except (ValueError, TypeError) as e:
+        print(f"Error processing policy: {e}", file=sys.stderr)
+        sys.exit(1)
     except Exception as e:
-        print(f"An unexpected error occurred processing patterns: {e}", file=sys.stderr)
+        print(f"An unexpected error occurred: {e}", file=sys.stderr)
         sys.exit(2)
 
 
