@@ -15,8 +15,8 @@ from .utils import get_version
 def main():
     parser = argparse.ArgumentParser(
         description=(
-            "Expand AWS IAM action patterns provided as arguments/stdin lines OR "
-            "expand actions within an IAM Policy JSON provided via stdin."
+            "Expand AWS IAM action provided as arguments/stdin lines OR "
+            "expand actions within an AWS IAM Policy JSON provided via stdin."
         ),
         prog="py-iam-expand",
     )
