@@ -15,13 +15,13 @@ def expand_policy_actions(
     Args:
         policy_data: A dictionary representing the parsed IAM policy JSON.
         invalid_handling_action: How to handle invalid patterns in Action elements:
-                               - RAISE_ERROR: Raise an exception
-                               - REMOVE: Silently remove invalid patterns
-                               - KEEP: Keep invalid patterns in the result
+                                - RAISE_ERROR: Raise an exception
+                                - REMOVE: Silently remove invalid patterns
+                                - KEEP: Keep invalid patterns in the result
         invalid_handling_notaction: How to handle invalid patterns in NotAction elements:
-                                  - RAISE_ERROR: Raise an exception
-                                  - REMOVE: Silently remove invalid patterns
-                                  - KEEP: Keep invalid patterns in the result (default)
+                                    - RAISE_ERROR: Raise an exception
+                                    - REMOVE: Silently remove invalid patterns
+                                    - KEEP: Keep invalid patterns in the result (default)
 
     Returns:
         A dictionary representing the policy with expanded actions.
@@ -29,7 +29,7 @@ def expand_policy_actions(
     Raises:
         ValueError: If the policy structure is invalid (e.g., missing Statement).
         InvalidActionPatternError: If any action pattern within the policy is invalid
-                                  and the corresponding invalid_handling is RAISE_ERROR.
+                                    and the corresponding invalid_handling is RAISE_ERROR.
         TypeError: If Statement or its elements are not of the expected type.
     """
     if not isinstance(policy_data, dict):
