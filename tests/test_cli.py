@@ -163,3 +163,66 @@ class TestCliInterface:
 
                 assert output_lines == expected_actions
                 assert not (output_lines & excluded_actions)
+
+    def test_cli_invalid_service_keep(self, capsys):
+        """Test CLI with invalid service and KEEP handling"""
+        with patch("sys.stdin.read", return_value="nonexistent:*"):
+            with patch("sys.stdin.isatty", return_value=False):
+                with patch("sys.argv", ["py-iam-expand", "--invalid-action", "keep"]):
+                    main()
+                    captured = capsys.readouterr()
+                    # Split by newline and filter out empty lines
+                    output = [line for line in captured.out.splitlines() if line]
+                    assert output == ["nonexistent:*"]
+
+    def test_cli_invalid_service_remove(self, capsys):
+        """Test CLI with invalid service and REMOVE handling"""
+        with patch("sys.stdin.read", return_value="nonexistent:*"):
+            with patch("sys.stdin.isatty", return_value=False):
+                with patch("sys.argv", ["py-iam-expand", "--invalid-action", "remove"]):
+                    main()
+                    captured = capsys.readouterr()
+                    # Split by newline and filter out empty lines
+                    output = [line for line in captured.out.splitlines() if line]
+                    assert output == []
+
+    def test_cli_invalid_service_default(self, capsys):
+        """Test CLI with invalid service and default (RAISE_ERROR) handling"""
+        with patch("sys.stdin.read", return_value="nonexistent:*"):
+            with patch("sys.stdin.isatty", return_value=False):
+                with patch("sys.argv", ["py-iam-expand"]):
+                    with pytest.raises(SystemExit) as exc_info:
+                        main()
+                    assert exc_info.value.code == 1
+                    captured = capsys.readouterr()
+                    assert "Service 'nonexistent' not found" in captured.err
+
+    def test_cli_policy_invalid_service_keep(self, sample_policy, capsys):
+        """Test CLI policy mode with invalid service and KEEP handling"""
+        policy = {
+            "Statement": [
+                {"Effect": "Allow", "Action": "nonexistent:*", "Resource": "*"}
+            ]
+        }
+        with patch("sys.stdin.read", return_value=json.dumps(policy)):
+            with patch("sys.stdin.isatty", return_value=False):
+                with patch("sys.argv", ["py-iam-expand", "--invalid-action", "keep"]):
+                    main()
+                    captured = capsys.readouterr()
+                    output_policy = json.loads(captured.out)
+                    assert output_policy["Statement"][0]["Action"] == ["nonexistent:*"]
+
+    def test_cli_policy_invalid_service_remove(self, sample_policy, capsys):
+        """Test CLI policy mode with invalid service and REMOVE handling"""
+        policy = {
+            "Statement": [
+                {"Effect": "Allow", "Action": "nonexistent:*", "Resource": "*"}
+            ]
+        }
+        with patch("sys.stdin.read", return_value=json.dumps(policy)):
+            with patch("sys.stdin.isatty", return_value=False):
+                with patch("sys.argv", ["py-iam-expand", "--invalid-action", "remove"]):
+                    main()
+                    captured = capsys.readouterr()
+                    output_policy = json.loads(captured.out)
+                    assert output_policy["Statement"][0]["Action"] == []

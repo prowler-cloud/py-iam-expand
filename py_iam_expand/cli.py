@@ -2,7 +2,12 @@ import argparse
 import json
 import sys
 
-from .actions import InvalidActionPatternError, expand_actions, invert_actions
+from .actions import (
+    InvalidActionHandling,
+    InvalidActionPatternError,
+    expand_actions,
+    invert_actions,
+)
 from .policy import expand_policy_actions
 from .utils import get_version
 
@@ -42,7 +47,41 @@ def main():
         ),
     )
 
+    parser.add_argument(
+        "--invalid-action",
+        choices=["raise", "remove", "keep"],
+        default="raise",
+        help=(
+            "How to handle invalid patterns in Action elements: "
+            "raise - raise an error (default), "
+            "remove - silently remove invalid patterns, "
+            "keep - keep invalid patterns in the result"
+        ),
+    )
+
+    parser.add_argument(
+        "--invalid-notaction",
+        choices=["raise", "remove", "keep"],
+        default="keep",
+        help=(
+            "How to handle invalid patterns in NotAction elements: "
+            "raise - raise an error, "
+            "remove - silently remove invalid patterns, "
+            "keep - keep invalid patterns in the result (default)"
+        ),
+    )
+
     args = parser.parse_args()
+
+    # Map CLI options to enum values
+    invalid_handling_map = {
+        "raise": InvalidActionHandling.RAISE_ERROR,
+        "remove": InvalidActionHandling.REMOVE,
+        "keep": InvalidActionHandling.KEEP,
+    }
+
+    invalid_handling_action = invalid_handling_map[args.invalid_action]
+    invalid_handling_notaction = invalid_handling_map[args.invalid_notaction]
 
     is_policy_mode = False
     stdin_content = None
@@ -78,7 +117,11 @@ def main():
                 )
                 sys.exit(1)
 
-            expanded_policy = expand_policy_actions(policy_data)
+            expanded_policy = expand_policy_actions(
+                policy_data,
+                invalid_handling_action=invalid_handling_action,
+                invalid_handling_notaction=invalid_handling_notaction,
+            )
 
             print(json.dumps(expanded_policy, indent=2))
 
@@ -99,9 +142,13 @@ def main():
                 sys.exit(1)
 
             if args.invert:
-                result_actions = invert_actions(patterns_to_process)
+                result_actions = invert_actions(
+                    patterns_to_process, invalid_handling=invalid_handling_action
+                )
             else:
-                result_actions = expand_actions(patterns_to_process)
+                result_actions = expand_actions(
+                    patterns_to_process, invalid_handling=invalid_handling_action
+                )
 
             if result_actions:
                 for action in result_actions:

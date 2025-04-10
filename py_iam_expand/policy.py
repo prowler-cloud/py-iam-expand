@@ -1,22 +1,35 @@
 from copy import deepcopy
 from typing import Any, Dict, List
 
-from .actions import InvalidActionPatternError, expand_actions
+from .actions import InvalidActionHandling, InvalidActionPatternError, expand_actions
 
 
-def expand_policy_actions(policy_data: Dict[str, Any]) -> Dict[str, Any]:
+def expand_policy_actions(
+    policy_data: Dict[str, Any],
+    invalid_handling_action: InvalidActionHandling = InvalidActionHandling.REMOVE,
+    invalid_handling_notaction: InvalidActionHandling = InvalidActionHandling.KEEP,
+) -> Dict[str, Any]:
     """
     Expands Action and NotAction fields within an IAM policy document.
 
     Args:
         policy_data: A dictionary representing the parsed IAM policy JSON.
+        invalid_handling_action: How to handle invalid patterns in Action elements:
+                               - RAISE_ERROR: Raise an exception
+                               - REMOVE: Silently remove invalid patterns
+                               - KEEP: Keep invalid patterns in the result
+        invalid_handling_notaction: How to handle invalid patterns in NotAction elements:
+                                  - RAISE_ERROR: Raise an exception
+                                  - REMOVE: Silently remove invalid patterns
+                                  - KEEP: Keep invalid patterns in the result (default)
 
     Returns:
         A dictionary representing the policy with expanded actions.
 
     Raises:
         ValueError: If the policy structure is invalid (e.g., missing Statement).
-        InvalidActionPatternError: If any action pattern within the policy is invalid.
+        InvalidActionPatternError: If any action pattern within the policy is invalid
+                                  and the corresponding invalid_handling is RAISE_ERROR.
         TypeError: If Statement or its elements are not of the expected type.
     """
     if not isinstance(policy_data, dict):
@@ -54,7 +67,9 @@ def expand_policy_actions(policy_data: Dict[str, Any]) -> Dict[str, Any]:
                     )
 
                 if patterns_to_expand:
-                    expanded = expand_actions(patterns_to_expand)
+                    expanded = expand_actions(
+                        patterns_to_expand, invalid_handling_action
+                    )
                     statement["Action"] = expanded
                 elif not isinstance(original_action, list):
                     statement["Action"] = []
@@ -76,18 +91,18 @@ def expand_policy_actions(policy_data: Dict[str, Any]) -> Dict[str, Any]:
                     )
 
                 if patterns_to_expand:
-                    expanded = expand_actions(patterns_to_expand)
+                    expanded = expand_actions(
+                        patterns_to_expand, invalid_handling_notaction
+                    )
                     statement["NotAction"] = expanded
                 elif not isinstance(original_not_action, list):
                     statement["NotAction"] = []
 
         except InvalidActionPatternError as e:
-            # Add context about which statement failed
             raise InvalidActionPatternError(
                 pattern=e.pattern, message=f"Statement {i}: {e.message}"
             ) from e
         except (TypeError, ValueError) as e:
-            # Add context about which statement failed
             raise type(e)(f"Statement {i}: {e}") from e
 
     return policy_copy

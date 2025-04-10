@@ -1,6 +1,7 @@
 import pytest
 
 from py_iam_expand.actions import (
+    InvalidActionHandling,
     InvalidActionPatternError,
     expand_actions,
     invert_actions,
@@ -61,7 +62,21 @@ class TestActionInversion:
 
     def test_expand_invalid_service(self):
         """Test handling of non-existent service"""
-        result = expand_actions("nonexistent:*")
+        # Test with RAISE_ERROR (default)
+        with pytest.raises(InvalidActionPatternError) as exc_info:
+            expand_actions("nonexistent:*")
+        assert "Service 'nonexistent' not found" in str(exc_info.value)
+
+        # Test with KEEP
+        result = expand_actions(
+            "nonexistent:*", invalid_handling=InvalidActionHandling.KEEP
+        )
+        assert result == ["nonexistent:*"]
+
+        # Test with REMOVE
+        result = expand_actions(
+            "nonexistent:*", invalid_handling=InvalidActionHandling.REMOVE
+        )
         assert result == []
 
     def test_expand_case_sensitivity(self):
