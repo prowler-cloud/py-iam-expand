@@ -8,12 +8,12 @@ import pytest
 def mock_iam_data():
     """Mock IAMData to return consistent test data"""
     with patch("py_iam_expand.actions.iam_data") as mock:
-        mock.services.get_service_keys.return_value = ["S3", "EC2", "IAM", "STS"]
+        mock.services.get_service_keys.return_value = ["s3", "ec2", "iam", "sts"]
         mock.actions.get_actions_for_service.side_effect = lambda service: {
-            "S3": ["GetObject", "GetBucket"],
-            "EC2": ["DescribeInstances", "DescribeVolumes"],
-            "IAM": ["PassRole", "CreateAccessKey", "ListAccessKeys"],
-            "STS": ["AssumeRole"],
+            "s3": ["GetObject", "GetBucket"],
+            "ec2": ["DescribeInstances", "DescribeVolumes"],
+            "iam": ["PassRole", "CreateAccessKey", "ListAccessKeys"],
+            "sts": ["AssumeRole"],
         }.get(service, [])
         yield mock
 

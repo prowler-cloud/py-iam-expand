@@ -10,14 +10,14 @@ class TestPolicyExpansion:
         result = expand_policy_actions(sample_policy)
 
         # Verify first statement (Action)
-        assert result["Statement"][0]["Action"] == ["S3:GetBucket", "S3:GetObject"]
+        assert result["Statement"][0]["Action"] == ["s3:GetBucket", "s3:GetObject"]
 
         # Verify second statement (NotAction)
         assert result["Statement"][1]["NotAction"] == [
-            "EC2:DescribeInstances",
-            "EC2:DescribeVolumes",
-            "IAM:CreateAccessKey",
-            "IAM:ListAccessKeys",
+            "ec2:DescribeInstances",
+            "ec2:DescribeVolumes",
+            "iam:CreateAccessKey",
+            "iam:ListAccessKeys",
         ]
 
     def test_empty_policy(self):
@@ -115,7 +115,7 @@ class TestPolicyExpansion:
             # Keep NotAction default (KEEP) to isolate Action handling
         )
         # Valid action expanded, invalid ones removed
-        assert result["Statement"][0]["Action"] == ["S3:GetBucket", "S3:GetObject"]
+        assert result["Statement"][0]["Action"] == ["s3:GetBucket", "s3:GetObject"]
         # NotAction should still contain invalid patterns (default KEEP)
         assert "iam:no-colon" in result["Statement"][1]["NotAction"]
         assert "fake-svc:*" in result["Statement"][1]["NotAction"]
@@ -129,7 +129,7 @@ class TestPolicyExpansion:
         )
         # Valid action expanded, invalid ones kept as-is
         expected_actions = sorted(
-            ["S3:GetBucket", "S3:GetObject", "invalid-format", "nonexistent:*"]
+            ["s3:GetBucket", "s3:GetObject", "invalid-format", "nonexistent:*"]
         )
         assert result["Statement"][0]["Action"] == expected_actions
         # NotAction should still contain invalid patterns (default KEEP)
@@ -161,11 +161,11 @@ class TestPolicyExpansion:
             invalid_handling_notaction=InvalidActionHandling.REMOVE,
         )
         # Action should have invalid patterns removed (default REMOVE)
-        assert result["Statement"][0]["Action"] == ["S3:GetBucket", "S3:GetObject"]
+        assert result["Statement"][0]["Action"] == ["s3:GetBucket", "s3:GetObject"]
         # Valid NotAction expanded, invalid ones removed
         assert result["Statement"][1]["NotAction"] == [
-            "EC2:DescribeInstances",
-            "EC2:DescribeVolumes",
+            "ec2:DescribeInstances",
+            "ec2:DescribeVolumes",
         ]
 
     def test_policy_invalid_notaction_keep(self, policy_with_invalid_actions):
@@ -176,12 +176,12 @@ class TestPolicyExpansion:
             invalid_handling_notaction=InvalidActionHandling.KEEP,  # Explicitly set default
         )
         # Action should have invalid patterns removed (default REMOVE)
-        assert result["Statement"][0]["Action"] == ["S3:GetBucket", "S3:GetObject"]
+        assert result["Statement"][0]["Action"] == ["s3:GetBucket", "s3:GetObject"]
         # Valid NotAction expanded, invalid ones kept as-is
         expected_notactions = sorted(
             [
-                "EC2:DescribeInstances",
-                "EC2:DescribeVolumes",
+                "ec2:DescribeInstances",
+                "ec2:DescribeVolumes",
                 "iam:no-colon",
                 "fake-svc:*",
             ]
@@ -197,11 +197,11 @@ class TestPolicyExpansion:
         )
         # Action: Valid expanded, invalid kept
         expected_actions = sorted(
-            ["S3:GetBucket", "S3:GetObject", "invalid-format", "nonexistent:*"]
+            ["s3:GetBucket", "s3:GetObject", "invalid-format", "nonexistent:*"]
         )
         assert result["Statement"][0]["Action"] == expected_actions
         # NotAction: Valid expanded, invalid removed
         assert result["Statement"][1]["NotAction"] == [
-            "EC2:DescribeInstances",
-            "EC2:DescribeVolumes",
+            "ec2:DescribeInstances",
+            "ec2:DescribeVolumes",
         ]

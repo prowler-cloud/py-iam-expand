@@ -12,16 +12,16 @@ class TestActionExpansion:
     def test_expand_single_pattern(self):
         """Test expanding a single pattern"""
         result = expand_actions("s3:Get*")
-        assert result == ["S3:GetBucket", "S3:GetObject"]
+        assert result == ["s3:GetBucket", "s3:GetObject"]
 
     def test_expand_multiple_patterns(self):
         """Test expanding multiple patterns"""
         result = expand_actions(["s3:Get*", "ec2:Describe*"])
         assert result == [
-            "EC2:DescribeInstances",
-            "EC2:DescribeVolumes",
-            "S3:GetBucket",
-            "S3:GetObject",
+            "ec2:DescribeInstances",
+            "ec2:DescribeVolumes",
+            "s3:GetBucket",
+            "s3:GetObject",
         ]
 
     def test_expand_all_wildcard(self):
@@ -81,19 +81,19 @@ class TestActionInversion:
     # Define the expected full set of actions based on the conftest.py mock
     # This is what _get_all_actions() SHOULD return when using the mock
     EXPECTED_ALL_ACTIONS_FROM_MOCK = {
-        "S3:GetObject",
-        "S3:GetBucket",
-        "EC2:DescribeInstances",
-        "EC2:DescribeVolumes",
-        "IAM:PassRole",
-        "IAM:CreateAccessKey",
-        "IAM:ListAccessKeys",
-        "STS:AssumeRole",
+        "s3:GetObject",
+        "s3:GetBucket",
+        "ec2:DescribeInstances",
+        "ec2:DescribeVolumes",
+        "iam:PassRole",
+        "iam:CreateAccessKey",
+        "iam:ListAccessKeys",
+        "sts:AssumeRole",
     }
 
     def test_invert_single_pattern(self):
         """Test inverting a single pattern"""
-        actions_to_exclude = {"S3:GetBucket", "S3:GetObject"}
+        actions_to_exclude = {"s3:GetBucket", "s3:GetObject"}
         result = invert_actions("s3:Get*")
         expected = sorted(
             list(self.EXPECTED_ALL_ACTIONS_FROM_MOCK - actions_to_exclude)
@@ -103,11 +103,11 @@ class TestActionInversion:
     def test_invert_multiple_patterns(self):
         """Test inverting multiple patterns"""
         actions_to_exclude = {
-            "S3:GetBucket",
-            "S3:GetObject",
-            "EC2:DescribeInstances",
-            "EC2:DescribeVolumes",
-            "IAM:PassRole",
+            "s3:GetBucket",
+            "s3:GetObject",
+            "ec2:DescribeInstances",
+            "ec2:DescribeVolumes",
+            "iam:PassRole",
         }
         result = invert_actions(["s3:Get*", "ec2:Describe*", "iam:PassRole"])
         expected = sorted(
@@ -151,7 +151,7 @@ class TestActionInversion:
 
     def test_invert_case_insensitivity(self):
         """Test case insensitivity for patterns during inversion"""
-        actions_to_exclude = {"EC2:DescribeInstances", "EC2:DescribeVolumes"}
+        actions_to_exclude = {"ec2:DescribeInstances", "ec2:DescribeVolumes"}
         result = invert_actions("Ec2:DESCRIBE*")  # Mixed case
         expected = sorted(
             list(self.EXPECTED_ALL_ACTIONS_FROM_MOCK - actions_to_exclude)
@@ -170,7 +170,7 @@ class TestActionInversion:
     def test_invert_invalid_pattern_remove(self):
         """Test REMOVE for invalid patterns during inversion"""
         # 'invalid-format' should be ignored, only 's3:Get*' used for exclusion
-        actions_to_exclude = {"S3:GetBucket", "S3:GetObject"}
+        actions_to_exclude = {"s3:GetBucket", "s3:GetObject"}
         result = invert_actions(
             ["s3:Get*", "invalid-format"], invalid_handling=InvalidActionHandling.REMOVE
         )
@@ -183,7 +183,7 @@ class TestActionInversion:
         """Test KEEP for invalid patterns during inversion"""
         # 'invalid-format' should be ignored for exclusion purposes, only 's3:Get*' used
         # KEEP behaves like REMOVE in the context of *excluding* actions
-        actions_to_exclude = {"S3:GetBucket", "S3:GetObject"}
+        actions_to_exclude = {"s3:GetBucket", "s3:GetObject"}
         result = invert_actions(
             ["s3:Get*", "invalid-format"], invalid_handling=InvalidActionHandling.KEEP
         )
@@ -204,7 +204,7 @@ class TestActionInversion:
     def test_invert_invalid_service_remove_or_keep(self):
         """Test REMOVE/KEEP for non-existent service during inversion"""
         # 'nonexistent:*' should be ignored for exclusion, only 's3:Get*' used
-        actions_to_exclude = {"S3:GetBucket", "S3:GetObject"}
+        actions_to_exclude = {"s3:GetBucket", "s3:GetObject"}
         for mode in [InvalidActionHandling.REMOVE, InvalidActionHandling.KEEP]:
             result = invert_actions(["s3:Get*", "nonexistent:*"], invalid_handling=mode)
             expected = sorted(
