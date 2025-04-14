@@ -110,7 +110,7 @@ poetry run pytest tests
 
 ## Data
 
-This project leverages the [`iam-data`](https://pypi.org/project/iam-data/) package for up-to-date AWS IAM data.
+This project leverages the [`iam-data`](https://github.com/cloud-copilot/iam-data-python) package for up-to-date AWS IAM data.
 
 ## Contributing
 
