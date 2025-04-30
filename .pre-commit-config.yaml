@@ -39,18 +39,6 @@ repos:
       - id: isort
         args: ["--profile", "black"]
 
-  - repo: https://github.com/psf/black
-    rev: 24.1.1
-    hooks:
-      - id: black
-
-  - repo: https://github.com/pycqa/flake8
-    rev: 7.0.0
-    hooks:
-      - id: flake8
-        exclude: contrib
-        args: ["--ignore=E501,W503"]
-
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.3.2
     hooks:

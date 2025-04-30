@@ -38,16 +38,8 @@ jobs:
         run: |
           poetry check --lock
 
-      - name: Lint with flake8
-        run: |
-          poetry run flake8 . --ignore=E501,W503
-
       - name: Lint with ruff
         uses: astral-sh/ruff-action@9828f49eb4cadf267b40eaa330295c412c68c1f9 # v3.2.2
-
-      - name: Checking format with black
-        run: |
-          poetry run black --check .
 
       - name: Lint with pylint
         run: |
