@@ -24,6 +24,9 @@ readme = "README.md"
 requires-python = ">3.9.1,<3.14"
 version = "0.1.0"
 
+[project.scripts]
+py-iam-expand = "py_iam_expand.__main__:main"
+
 [project.urls]
 "Changelog" = "https://github.com/prowler-cloud/py-iam-expand/releases"
 "Documentation" = "https://docs.prowler.cloud"
