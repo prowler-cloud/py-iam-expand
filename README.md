@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="imgs/py-iam-expand.png" alt="py-iam-expand logo" height="300" />
+</div>
+
 # py-iam-expand
 
 `py-iam-expand` is a Python tool to expand and deobfuscate AWS IAM actions.
