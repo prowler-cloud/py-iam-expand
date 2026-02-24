@@ -1,0 +1,41 @@
+name: PyPI release
+permissions:
+  contents: read
+
+on:
+  release:
+    types: [published]
+
+env:
+  RELEASE_TAG: ${{ github.event.release.tag_name }}
+  PYTHON_VERSION: 3.11
+  # CACHE: "poetry"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      POETRY_VIRTUALENVS_CREATE: "false"
+
+    name: Release py-iam-expand to PyPI
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Install dependencies
+        run: |
+          pipx install poetry==2.1.1
+
+      - name: Setup Python
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          # cache: ${{ env.CACHE }}
+
+      - name: Build package
+        run: |
+          poetry build
+
+      - name: Publish package to PyPI
+        run: |
+          poetry config pypi-token.pypi ${{ secrets.PYPI_API_TOKEN }}
+          poetry publish
