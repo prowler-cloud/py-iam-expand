@@ -14,8 +14,6 @@ env:
 jobs:
   release:
     runs-on: ubuntu-latest
-    env:
-      POETRY_VIRTUALENVS_CREATE: "false"
 
     name: Release py-iam-expand to PyPI
     steps:
