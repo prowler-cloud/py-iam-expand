@@ -54,8 +54,16 @@ jobs:
           poetry run bandit -q -lll -x './tests' -r .
 
       - name: Safety
+        # 70612: pre-existing ignore
+        # 84415, 84183, 82754: filelock TOCTOU vulns — patched version requires Python >=3.10, no fix for 3.9
+        # 83159: marshmallow DoS — patched version requires Python >=3.10, no fix for 3.9
         run: |
-          poetry run safety check --ignore 70612
+          poetry run safety check \
+            --ignore 70612 \
+            --ignore 84415 \
+            --ignore 84183 \
+            --ignore 82754 \
+            --ignore 83159
 
       - name: Vulture
         run: |
