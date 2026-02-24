@@ -12,7 +12,7 @@ classifiers = [
   "License :: OSI Approved :: Apache Software License"
 ]
 dependencies = [
-  "iamdata>=0.1.202504091"
+  "iamdata>=0.1.202504091,<0.2.0"
 ]
 description = "This is a Python package to expand and deobfuscate IAM policies."
 license = "Apache-2.0"
@@ -46,14 +46,14 @@ requires-poetry = ">=2.0"
 
 [tool.poetry.group.dev.dependencies]
 bandit = "1.8.3"
-mypy = "1.15.0"
-pylint = "3.3.1"
+mypy = "1.19.1"
+pylint = "3.3.9"
 pytest = "8.3.5"
 pytest-cov = "6.0.0"
 pytest-env = "1.1.5"
 pytest-randomly = "3.16.0"
 pytest-xdist = "3.8.0"
-requests = "^2.32.3"
+requests = "2.32.5"
 ruff = "0.9.10"
-safety = "^3.2.9"
+safety = "3.7.0"
 vulture = "2.14"
