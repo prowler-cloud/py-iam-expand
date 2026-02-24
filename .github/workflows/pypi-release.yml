@@ -1,6 +1,7 @@
 name: PyPI release
 permissions:
   contents: read
+  id-token: write
 
 on:
   release:
