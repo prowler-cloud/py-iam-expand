@@ -18,10 +18,11 @@ env:
 jobs:
   release:
     runs-on: ubuntu-latest
+    environment: release
     name: Release py-iam-expand to PyPI
     permissions:
       contents: read # Checkout repository
-      id-token: write # PyPI trusted publishing (future use)
+      id-token: write # PyPI trusted publishing
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
@@ -41,7 +42,4 @@ jobs:
           poetry build
 
       - name: Publish package to PyPI
-        env:
-          POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_API_TOKEN }} # zizmor: ignore[secrets-outside-env]
-        run: |
-          poetry publish
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
