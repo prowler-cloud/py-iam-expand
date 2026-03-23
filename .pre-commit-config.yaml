@@ -21,6 +21,12 @@ repos:
         args: [--autofix]
         files: pyproject.toml
 
+  ## GITHUB ACTIONS
+  - repo: https://github.com/zizmorcore/zizmor-pre-commit
+    rev: v1.22.0
+    hooks:
+      - id: zizmor
+
   ## PYTHON
   - repo: https://github.com/myint/autoflake
     rev: v2.2.1
