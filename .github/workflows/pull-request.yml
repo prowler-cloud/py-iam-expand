@@ -81,5 +81,5 @@ jobs:
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7 # v5.5.1
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+          token: ${{ secrets.CODECOV_TOKEN }} # zizmor: ignore[secrets-outside-env]
           slug: prowler-cloud/py-iam-expand
