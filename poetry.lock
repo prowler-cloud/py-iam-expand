@@ -883,14 +883,14 @@ zstd = ["zstandard (>=0.18.0)"]
 
 [[package]]
 name = "iamdata"
-version = "0.1.202511221"
+version = "0.1.202603231"
 description = "IAM data for AWS actions, resources, and conditions based on IAM policy documents. Checked for updates daily."
 optional = false
 python-versions = ">=3.7"
 groups = ["main"]
 files = [
-    {file = "iamdata-0.1.202511221-py3-none-any.whl", hash = "sha256:6c0b47daa01ef1df5ff88cf20f66c0c9624340cad9a08d2938f4e781bdbfa015"},
-    {file = "iamdata-0.1.202511221.tar.gz", hash = "sha256:cc5c87a8f65f425e2d5711ea64f5596598a63c5f78185258e8bc0e34317320a6"},
+    {file = "iamdata-0.1.202603231-py3-none-any.whl", hash = "sha256:dbef6264dd3d30ae59be6fdbcf465e313830b033fc22115db09c9fce0af92bf1"},
+    {file = "iamdata-0.1.202603231.tar.gz", hash = "sha256:cc52a8a349d661fdb27eea04755dbeba2eb47857786b64add4bfdb0a5a4268c2"},
 ]
 
 [[package]]
