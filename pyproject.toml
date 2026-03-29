@@ -45,7 +45,7 @@ packages = [
 requires-poetry = ">=2.0"
 
 [tool.poetry.group.dev.dependencies]
-bandit = "1.8.3"
+bandit = "1.8.6"
 mypy = "1.19.1"
 pylint = "3.3.9"
 pytest = "8.3.5"
